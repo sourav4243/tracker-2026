@@ -1,0 +1,22 @@
+import { prisma } from '@/lib/prisma'
+import { NextResponse } from 'next/server'
+
+export async function GET() {
+  const questions = await prisma.dSAQuestion.findMany({
+    orderBy: [
+      { phase: 'asc' },
+      { topic: 'asc' },
+      { title: 'asc' }
+    ]
+  })
+  return NextResponse.json(questions)
+}
+
+export async function PUT(request: Request) {
+  const { id, status } = await request.json()
+  const updated = await prisma.dSAQuestion.update({
+    where: { id },
+    data: { status }
+  })
+  return NextResponse.json(updated)
+}

@@ -1,0 +1,38 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model DSAQuestion {
+  id        String   @id @default(cuid())
+  title     String
+  link      String?
+  phase     String
+  topic     String
+  status    String   @default("TODO") // TODO, REVISIT, DONE
+  difficulty String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CSConcept {
+  id        String   @id @default(cuid())
+  subject   String   // OS, DBMS, Networking, OOPS
+  topic     String
+  status    String   @default("TODO")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DailyLog {
+  id        String   @id @default(cuid())
+  date      DateTime @unique @db.Date
+  exercise  Boolean  @default(false)
+  coding    Boolean  @default(false)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
