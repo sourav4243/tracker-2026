@@ -4,11 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.0.2",
+    "@prisma/adapter-neon": "^7.2.0",
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
     "next": "16.1.1",
