@@ -63,7 +63,7 @@ const ContributionGraph = ({ questions }: { questions: DSAQuestion[] }) => {
     let monthlyTotal = 0
 
     questions.forEach(q => {
-      if (q.status === 'DONE' && q.completedAt) {
+      if ((q.status === 'DONE' || q.status === 'REVISIT') && q.completedAt) {
         // Normalize date string to YYYY-MM-DD
         const dateStr = q.completedAt.split('T')[0]
         const currentCount = solvedMap.get(dateStr) || 0
@@ -216,11 +216,11 @@ export default function TrackerApp() {
     
     setDsaQuestions(prev => prev.map(q => {
         if (q.id !== id) return q
-        // If marking DONE, set completedAt. If unmarking, clear it.
+        // If marking DONE or REVISIT, set completedAt. If marking TODO, clear it.
         return { 
             ...q, 
             status,
-            completedAt: status === 'DONE' ? now : (status === 'TODO' ? null : q.completedAt)
+            completedAt: (status === 'DONE' || status === 'REVISIT') ? now : (status === 'TODO' ? null : q.completedAt)
         }
     }))
     
@@ -241,7 +241,7 @@ export default function TrackerApp() {
       body: JSON.stringify({ 
           id, 
           status,
-          completedAt: status === 'DONE' ? now : null 
+          completedAt: (status === 'DONE' || status === 'REVISIT') ? now : null 
       })
     })
     fetchStats()
