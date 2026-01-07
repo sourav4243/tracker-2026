@@ -13,10 +13,13 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const { id, status } = await request.json()
+  const { id, status, completedAt } = await request.json()
   const updated = await prisma.dSAQuestion.update({
     where: { id },
-    data: { status }
+    data: { 
+      status,
+      completedAt: completedAt ? new Date(completedAt) : null
+    }
   })
   return NextResponse.json(updated)
 }
