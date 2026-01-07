@@ -430,17 +430,17 @@ export default function TrackerApp() {
                 </div>
                 <h3 className="text-zinc-400 font-medium mb-4 flex items-center gap-2">DSA Progress</h3>
                 <div className="flex items-end gap-3 mb-4">
-                  <span className="text-5xl font-bold text-white tracking-tight">{stats.dsa.done}</span>
+                  <span className="text-5xl font-bold text-white tracking-tight">{stats.dsa.done + stats.dsa.revisit}</span>
                   <span className="text-zinc-500 pb-2 text-lg">/ {stats.dsa.total}</span>
                 </div>
                 <div className="w-full bg-zinc-800 rounded-full h-2 mb-4 overflow-hidden">
                   <div
                     className="bg-linear-to-r from-emerald-500 to-emerald-400 h-2 rounded-full transition-all duration-1000 ease-out"
-                    style={{ width: `${(stats.dsa.done / stats.dsa.total) * 100}%` }}
+                    style={{ width: `${((stats.dsa.done + stats.dsa.revisit) / stats.dsa.total) * 100}%` }}
                   />
                 </div>
                 <div className="flex justify-between text-xs font-medium">
-                  <span className="text-emerald-400">{Math.round((stats.dsa.done / stats.dsa.total) * 100)}% Complete</span>
+                  <span className="text-emerald-400">{Math.round(((stats.dsa.done + stats.dsa.revisit) / stats.dsa.total) * 100)}% Complete</span>
                   <span className="text-amber-400">{stats.dsa.revisit} To Revisit</span>
                 </div>
               </div>
