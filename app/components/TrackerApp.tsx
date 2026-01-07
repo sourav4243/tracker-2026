@@ -342,7 +342,7 @@ export default function TrackerApp() {
         <header className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-zinc-800 pb-6">
           <div>
             <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-white mb-2">
-              <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-400 to-cyan-500">2026</span> Placement
+              <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-400 to-cyan-500">Khel</span> Khatm
             </h1>
             <p className="text-zinc-500 font-medium">Master Data Structures, Core CS & Discipline.</p>
           </div>
