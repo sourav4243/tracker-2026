@@ -15,8 +15,19 @@ model DSAQuestion {
   status    String   @default("TODO") // TODO, REVISIT, DONE
   difficulty String?
   completedAt DateTime? // Track when question was solved
+  revisions DSARevision[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model DSARevision {
+  id         String   @id @default(cuid())
+  questionId String
+  question   DSAQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  status     String   // Status it was changed to (DONE or REVISIT)
+  createdAt  DateTime @default(now())
+  
+  @@index([questionId])
 }
 
 model CSConcept {

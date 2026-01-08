@@ -3,6 +3,12 @@
 import { useState, useEffect, useMemo } from 'react'
 
 // --- Types ---
+type DSARevision = {
+  id: string
+  status: string
+  createdAt: string
+}
+
 type DSAQuestion = {
   id: string
   title: string
@@ -11,6 +17,7 @@ type DSAQuestion = {
   topic: string
   status: string
   completedAt?: string | null // Added to track when it was solved
+  revisions?: DSARevision[]
 }
 
 type CSConcept = {
@@ -43,7 +50,10 @@ const Icons = {
   Book: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>,
   Calendar: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
   Check: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>,
-  External: () => <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+  External: () => <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>,
+  History: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+  X: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>,
+  Plus: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
 }
 
 // --- Component: Monthly Calendar (Question Based) ---
@@ -177,6 +187,89 @@ const ContributionGraph = ({ questions }: { questions: DSAQuestion[] }) => {
   )
 }
 
+// --- Component: Revision History Modal ---
+const RevisionHistoryModal = ({ question, onClose }: { question: DSAQuestion, onClose: () => void }) => {
+  const getDaysAgo = (dateStr: string) => {
+    const date = new Date(dateStr)
+    const today = new Date()
+    const diffTime = Math.abs(today.getTime() - date.getTime())
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+    
+    if (diffDays === 0) return 'Today'
+    if (diffDays === 1) return 'Yesterday'
+    return `${diffDays} days ago`
+  }
+
+  const revisions = question.revisions || []
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-md w-full max-h-[80vh] overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-zinc-800 flex items-start justify-between sticky top-0 bg-zinc-900/95 backdrop-blur-sm">
+          <div>
+            <h3 className="text-lg font-bold text-white mb-1">{question.title}</h3>
+            <p className="text-sm text-zinc-400">Revision History</p>
+          </div>
+          <button onClick={onClose} className="text-zinc-400 hover:text-white transition-colors p-1">
+            <Icons.X />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 overflow-y-auto max-h-[calc(80vh-120px)]">
+          {revisions.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-zinc-500 mb-2">
+                <Icons.History />
+              </div>
+              <p className="text-zinc-400">No revisions yet</p>
+              <p className="text-xs text-zinc-600 mt-1">Mark this question as DONE or REVISIT to start tracking</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 rounded-lg border border-zinc-700">
+                  <Icons.History />
+                  <span className="text-sm font-bold text-white">{revisions.length}</span>
+                  <span className="text-xs text-zinc-400">revision{revisions.length !== 1 ? 's' : ''}</span>
+                </div>
+              </div>
+              
+              {revisions.map((revision, index) => (
+                <div key={revision.id} className="flex items-start gap-3 p-3 bg-zinc-800/50 rounded-lg border border-zinc-800 hover:border-zinc-700 transition-colors">
+                  <div className="shrink-0 mt-1">
+                    <div className={`w-2 h-2 rounded-full ${
+                      revision.status === 'DONE' ? 'bg-emerald-500' : 'bg-amber-500'
+                    }`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded ${
+                        revision.status === 'DONE' 
+                          ? 'bg-emerald-500/20 text-emerald-400' 
+                          : 'bg-amber-500/20 text-amber-400'
+                      }`}>
+                        {revision.status}
+                      </span>
+                      <span className="text-xs text-zinc-500">#{revisions.length - index}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-zinc-400">
+                      <span>{new Date(revision.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                      <span>•</span>
+                      <span className="text-zinc-500">{getDaysAgo(revision.createdAt)}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function TrackerApp() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
   const [stats, setStats] = useState<Stats | null>(null)
@@ -186,6 +279,7 @@ export default function TrackerApp() {
   const [loading, setLoading] = useState(true)
   const [dsaFilter, setDsaFilter] = useState<string>('all')
   const [dsaPhaseFilter, setDsaPhaseFilter] = useState<string>('all')
+  const [selectedQuestion, setSelectedQuestion] = useState<DSAQuestion | null>(null)
 
   useEffect(() => {
     fetchData()
@@ -243,10 +337,24 @@ export default function TrackerApp() {
           status,
           completedAt: (status === 'DONE' || status === 'REVISIT') ? now : null 
       })
-    })
+    }).then(res => res.json())
+      .then(updatedQuestion => {
+        // Update with the actual response including revisions
+        setDsaQuestions(prev => prev.map(q => q.id === id ? updatedQuestion : q))
+      })
     fetchStats()
   }
-
+  const addRevision = async (id: string) => {
+    await fetch('/api/dsa', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    }).then(res => res.json())
+      .then(updatedQuestion => {
+        // Update with the actual response including new revision
+        setDsaQuestions(prev => prev.map(q => q.id === id ? updatedQuestion : q))
+      })
+  }
   const updateCSStatus = async (id: string, status: string) => {
     setCsConcepts(prev => prev.map(c => c.id === id ? { ...c, status } : c))
     
@@ -534,13 +642,13 @@ export default function TrackerApp() {
                   <div className="divide-y divide-zinc-800/50">
                     {questions.map(q => (
                       <div key={q.id} className="p-4 hover:bg-zinc-800/30 transition-colors group flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="flex items-start gap-3">
+                        <div className="flex items-start gap-3 flex-1">
                           <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${
                             q.status === 'DONE' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' :
                             q.status === 'REVISIT' ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' :
                             'bg-zinc-700'
                           }`} />
-                          <div>
+                          <div className="flex-1 min-w-0">
                             {q.link ? (
                               <a href={q.link} target="_blank" rel="noreferrer" className="text-zinc-200 font-medium hover:text-emerald-400 transition-colors flex items-center gap-2 group-hover:translate-x-1 duration-200">
                                 {q.title} <Icons.External />
@@ -551,22 +659,51 @@ export default function TrackerApp() {
                           </div>
                         </div>
 
-                        <div className="flex bg-zinc-950 p-1 rounded-lg border border-zinc-800 w-fit self-end sm:self-auto">
-                          {(['TODO', 'REVISIT', 'DONE'] as const).map(status => (
+                        <div className="flex gap-2 items-center self-end sm:self-auto">
+                          {/* Revision Button */}
+                          <button
+                            onClick={() => addRevision(q.id)}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-600/50 hover:border-purple-500 rounded-lg text-purple-400 hover:text-purple-300 transition-all text-xs font-bold"
+                            title="Add revision"
+                          >
+                            <Icons.Plus />
+                            <span>Revision</span>
+                            {q.revisions && q.revisions.length > 0 && (
+                              <span className="ml-1 px-1.5 py-0.5 bg-purple-600/40 rounded text-[10px] font-mono">
+                                {q.revisions.length}
+                              </span>
+                            )}
+                          </button>
+                          
+                          {/* View History Button */}
+                          {q.revisions && q.revisions.length > 0 && (
                             <button
-                              key={status}
-                              onClick={() => updateDSAStatus(q.id, status)}
-                              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
-                                q.status === status
-                                  ? status === 'DONE' ? 'bg-emerald-600 text-white shadow-lg' :
-                                    status === 'REVISIT' ? 'bg-amber-600 text-white shadow-lg' :
-                                    'bg-zinc-600 text-white'
-                                  : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'
-                              }`}
+                              onClick={() => setSelectedQuestion(q)}
+                              className="flex items-center gap-1.5 px-3 py-2 bg-zinc-800/50 hover:bg-zinc-700 border border-zinc-700 hover:border-zinc-600 rounded-lg text-zinc-400 hover:text-zinc-200 transition-all text-xs font-bold"
+                              title="View revision history"
                             >
-                              {status}
+                              <Icons.History />
                             </button>
-                          ))}
+                          )}
+                          
+                          {/* Status Buttons */}
+                          <div className="flex bg-zinc-950 p-1 rounded-lg border border-zinc-800">
+                            {(['TODO', 'REVISIT', 'DONE'] as const).map(status => (
+                              <button
+                                key={status}
+                                onClick={() => updateDSAStatus(q.id, status)}
+                                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                                  q.status === status
+                                    ? status === 'DONE' ? 'bg-emerald-600 text-white shadow-lg' :
+                                      status === 'REVISIT' ? 'bg-amber-600 text-white shadow-lg' :
+                                      'bg-zinc-600 text-white'
+                                    : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'
+                                }`}
+                              >
+                                {status}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -694,6 +831,14 @@ export default function TrackerApp() {
         )}
 
       </div>
+      
+      {/* Revision History Modal */}
+      {selectedQuestion && (
+        <RevisionHistoryModal 
+          question={selectedQuestion} 
+          onClose={() => setSelectedQuestion(null)} 
+        />
+      )}
     </div>
   )
 }
