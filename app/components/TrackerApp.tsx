@@ -41,6 +41,29 @@ type Stats = {
   exercise: { days: number }
 }
 
+type LeetCodeData = {
+  total_active_seconds: number
+  is_active_now: boolean
+  daily_active_seconds?: number
+  last_updated?: string
+}
+
+type LeetCodeStats = {
+  total_days_active: number
+  average_daily_seconds: number
+  longest_session: { duration_seconds: number; date: string; start_time: string } | null
+  current_streak: number
+  total_seconds_all_time: number
+  last_7_days_total_seconds: number
+  current_month_total_seconds: number
+}
+
+type DailyHistory = {
+  date: string
+  total_seconds: number
+  session_count: number
+}
+
 type Tab = 'dashboard' | 'dsa' | 'cs' | 'daily'
 
 // --- SVGs ---
@@ -270,6 +293,21 @@ const RevisionHistoryModal = ({ question, onClose }: { question: DSAQuestion, on
   )
 }
 
+// --- Helper: Format seconds to human-readable time ---
+const formatTime = (totalSeconds: number) => {
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`
+  } else if (minutes > 0) {
+    return `${minutes}m ${seconds}s`
+  } else {
+    return `${seconds}s`
+  }
+}
+
 export default function TrackerApp() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
   const [stats, setStats] = useState<Stats | null>(null)
@@ -280,24 +318,75 @@ export default function TrackerApp() {
   const [dsaFilter, setDsaFilter] = useState<string>('all')
   const [dsaPhaseFilter, setDsaPhaseFilter] = useState<string>('all')
   const [selectedQuestion, setSelectedQuestion] = useState<DSAQuestion | null>(null)
+  const [leetcodeData, setLeetcodeData] = useState<LeetCodeData | null>(null)
+  const [leetcodeStats, setLeetcodeStats] = useState<LeetCodeStats | null>(null)
+  const [leetcodeHistory, setLeetcodeHistory] = useState<DailyHistory[]>([])
+  const [dailyTarget, setDailyTarget] = useState<number>(3)
 
   useEffect(() => {
     fetchData()
+    
+    // Poll LeetCode data every 30 seconds
+    const interval = setInterval(() => {
+      fetch('/api/leetcode')
+        .then(res => res.json())
+        .then(data => {
+          if (!data.error) {
+            setLeetcodeData(data)
+          }
+        })
+        .catch(err => console.error('Error polling LeetCode data:', err))
+    }, 30000)
+    
+    return () => clearInterval(interval)
   }, [])
 
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [statsRes, dsaRes, csRes, dailyRes] = await Promise.all([
+      const [statsRes, dsaRes, csRes, dailyRes, leetcodeRes, leetcodeStatsRes, leetcodeHistoryRes] = await Promise.all([
         fetch('/api/stats'),
         fetch('/api/dsa'),
         fetch('/api/cs'),
-        fetch('/api/daily')
+        fetch('/api/daily'),
+        fetch('/api/leetcode').catch(err => {
+          console.error('LeetCode API error:', err)
+          return null
+        }),
+        fetch('/api/leetcode/stats').catch(err => {
+          console.error('LeetCode stats error:', err)
+          return null
+        }),
+        fetch('/api/leetcode/history').catch(err => {
+          console.error('LeetCode history error:', err)
+          return null
+        })
       ])
       setStats(await statsRes.json())
       setDsaQuestions(await dsaRes.json())
       setCsConcepts(await csRes.json())
       setDailyLogs(await dailyRes.json())
+      
+      if (leetcodeRes && leetcodeRes.ok) {
+        const leetcodeData = await leetcodeRes.json()
+        if (!leetcodeData.error) {
+          setLeetcodeData(leetcodeData)
+        }
+      }
+      
+      if (leetcodeStatsRes && leetcodeStatsRes.ok) {
+        const statsData = await leetcodeStatsRes.json()
+        if (!statsData.error) {
+          setLeetcodeStats(statsData)
+        }
+      }
+      
+      if (leetcodeHistoryRes && leetcodeHistoryRes.ok) {
+        const historyData = await leetcodeHistoryRes.json()
+        if (!historyData.error && historyData.data) {
+          setLeetcodeHistory(historyData.data)
+        }
+      }
     } catch (error) {
       console.error('Error fetching data:', error)
     }
@@ -428,6 +517,63 @@ export default function TrackerApp() {
 
   const subjects = [...new Set(csConcepts.map(c => c.subject))]
 
+  // Calculate DSA solving streak
+  const calculateDSAStreak = () => {
+    const solvedDates = new Set<string>()
+    
+    dsaQuestions.forEach(q => {
+      if ((q.status === 'DONE' || q.status === 'REVISIT') && q.completedAt) {
+        const dateStr = q.completedAt.split('T')[0]
+        solvedDates.add(dateStr)
+      }
+    })
+    
+    if (solvedDates.size === 0) return 0
+    
+    const sortedDates = Array.from(solvedDates).sort((a, b) => 
+      new Date(b).getTime() - new Date(a).getTime()
+    )
+    
+    const today = new Date().toISOString().split('T')[0]
+    let streak = 0
+    let currentDate = new Date(today)
+    
+    for (let i = 0; i < sortedDates.length; i++) {
+      const checkDate = currentDate.toISOString().split('T')[0]
+      
+      if (sortedDates.includes(checkDate)) {
+        streak++
+        currentDate.setDate(currentDate.getDate() - 1)
+      } else {
+        break
+      }
+    }
+    
+    return streak
+  }
+  
+  const dsaStreak = calculateDSAStreak()
+  
+  // Calculate estimated completion date
+  const calculateCompletionDate = () => {
+    if (!stats) return null
+    
+    const remaining = stats.dsa.total - (stats.dsa.done + stats.dsa.revisit)
+    if (remaining <= 0 || dailyTarget <= 0) return null
+    
+    const daysNeeded = Math.ceil(remaining / dailyTarget)
+    const completionDate = new Date()
+    completionDate.setDate(completionDate.getDate() + daysNeeded)
+    
+    return {
+      date: completionDate,
+      daysNeeded,
+      remaining
+    }
+  }
+  
+  const completionInfo = calculateCompletionDate()
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
@@ -443,39 +589,86 @@ export default function TrackerApp() {
   const todayLog = dailyLogs.find(l => l.date.split('T')[0] === today)
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-100 font-sans selection:bg-emerald-500/30">
+    <div className="min-h-screen bg-[#09090b] text-zinc-100 font-sans selection:bg-emerald-500/30 overscroll-none">
       <div className="max-w-7xl mx-auto p-4 md:p-8">
         
         {/* Header Section */}
-        <header className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-zinc-800 pb-6">
-          <div>
-            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-white mb-2">
-              <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-400 to-cyan-500">Khel</span> Khatm
-            </h1>
-            <p className="text-zinc-500 font-medium">Master Data Structures, Core CS & Discipline.</p>
+        <header className="mb-10 space-y-6">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-zinc-800 pb-6">
+            <div>
+              <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-white mb-2">
+                <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-400 to-cyan-500">Khel</span> Khatm
+              </h1>
+              <p className="text-zinc-500 font-medium">Master Data Structures, Core CS & Discipline.</p>
+            </div>
+            
+            <nav className="bg-zinc-900/50 p-1.5 rounded-xl border border-zinc-800/50 flex gap-1 overflow-x-auto no-scrollbar">
+              {[
+                { id: 'dashboard', label: 'Dashboard', icon: Icons.Chart },
+                { id: 'dsa', label: 'DSA', icon: Icons.Code },
+                { id: 'cs', label: 'Core CS', icon: Icons.Book },
+                { id: 'daily', label: 'Daily', icon: Icons.Calendar },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as Tab)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? 'bg-zinc-800 text-white shadow-lg shadow-black/20 ring-1 ring-white/10'
+                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
+                  }`}
+                >
+                  <tab.icon />
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
           </div>
-          
-          <nav className="bg-zinc-900/50 p-1.5 rounded-xl border border-zinc-800/50 flex gap-1 overflow-x-auto no-scrollbar">
-            {[
-              { id: 'dashboard', label: 'Dashboard', icon: Icons.Chart },
-              { id: 'dsa', label: 'DSA', icon: Icons.Code },
-              { id: 'cs', label: 'Core CS', icon: Icons.Book },
-              { id: 'daily', label: 'Daily', icon: Icons.Calendar },
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as Tab)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? 'bg-zinc-800 text-white shadow-lg shadow-black/20 ring-1 ring-white/10'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
-                }`}
-              >
-                <tab.icon />
-                {tab.label}
-              </button>
-            ))}
-          </nav>
+
+          {/* LeetCode Today's Activity - Prominent Display */}
+          {leetcodeData && (
+            <div className="bg-linear-to-br from-cyan-950/30 via-blue-950/20 to-purple-950/30 border border-cyan-800/50 rounded-2xl p-4 backdrop-blur-sm shadow-lg">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-linear-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                    <span className="text-2xl">⚡</span>
+                  </div>
+                  <div>
+                    <div className="text-xs text-cyan-400 font-semibold uppercase tracking-wider mb-0.5">LeetCode Today</div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-bold text-transparent bg-clip-text bg-linear-to-r from-cyan-400 to-blue-500">
+                        {formatTime(leetcodeData.daily_active_seconds || 0)}
+                      </span>
+                      <span className="text-xs text-zinc-500">active time</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 px-4 py-2 bg-zinc-900/50 rounded-lg border border-zinc-800">
+                    <div className={`w-2.5 h-2.5 rounded-full ${leetcodeData.is_active_now ? 'bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-zinc-600'}`} />
+                    <span className={`text-sm font-medium ${leetcodeData.is_active_now ? 'text-green-400' : 'text-zinc-500'}`}>
+                      {leetcodeData.is_active_now ? 'Active Now' : 'Offline'}
+                    </span>
+                  </div>
+                  
+                  {leetcodeStats && (
+                    <div className="hidden sm:flex items-center gap-3 px-4 py-2 bg-zinc-900/50 rounded-lg border border-zinc-800">
+                      <div className="text-center">
+                        <div className="text-xs text-zinc-500">Streak</div>
+                        <div className="text-lg font-bold text-orange-400">{leetcodeStats.current_streak}</div>
+                      </div>
+                      <div className="w-px h-8 bg-zinc-700" />
+                      <div className="text-center">
+                        <div className="text-xs text-zinc-500">Avg/Day</div>
+                        <div className="text-lg font-bold text-purple-400">{formatTime(leetcodeStats.average_daily_seconds)}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </header>
 
         {/* Dashboard View */}
@@ -488,47 +681,46 @@ export default function TrackerApp() {
                     <ContributionGraph questions={dsaQuestions} />
                 </div>
                 
-                {/* Quick Actions */}
-                <div className="flex-1 bg-zinc-900/30 border border-zinc-800/50 rounded-xl p-6 backdrop-blur-sm flex flex-col justify-center">
-                  <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"/>
-                    Quick Check-in: {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric'})}
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <button
-                      onClick={() => toggleDaily('exercise')}
-                      className={`group relative p-4 rounded-xl border transition-all duration-300 ${
-                        todayLog?.exercise
-                          ? 'bg-emerald-500/10 border-emerald-500/50 hover:bg-emerald-500/20'
-                          : 'bg-zinc-800/50 border-zinc-700 hover:border-zinc-500 hover:bg-zinc-800'
-                      }`}
-                    >
-                      <div className="flex flex-col items-center justify-between gap-2 text-center">
-                          <span className="text-3xl group-hover:scale-110 transition-transform">🏃</span>
-                          <span className={`text-sm font-medium ${todayLog?.exercise ? 'text-emerald-400' : 'text-zinc-300'}`}>
-                            {todayLog?.exercise ? 'Done' : 'Exercise'}
-                          </span>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={() => toggleDaily('coding')}
-                      className={`group relative p-4 rounded-xl border transition-all duration-300 ${
-                        todayLog?.coding
-                          ? 'bg-blue-500/10 border-blue-500/50 hover:bg-blue-500/20'
-                          : 'bg-zinc-800/50 border-zinc-700 hover:border-zinc-500 hover:bg-zinc-800'
-                      }`}
-                    >
-                      <div className="flex flex-col items-center justify-between gap-2 text-center">
-                          <span className="text-3xl group-hover:scale-110 transition-transform">💻</span>
-                          <span className={`text-sm font-medium ${todayLog?.coding ? 'text-blue-400' : 'text-zinc-300'}`}>
-                            {todayLog?.coding ? 'Done' : 'Code'}
-                          </span>
-                      </div>
-                    </button>
+                {/* Weekly Activity Chart */}
+                {leetcodeStats && leetcodeHistory.length > 0 && (
+                  <div className="flex-1 bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6">
+                    <h3 className="text-zinc-200 font-semibold text-lg mb-6">Last 7 Days Activity</h3>
+                    <div className="flex items-end justify-center gap-6 h-58">
+                      {leetcodeHistory.slice(0, 7).reverse().map((day) => {
+                        const maxSeconds = Math.max(...leetcodeHistory.map(d => d.total_seconds))
+                        const height = maxSeconds > 0 ? (day.total_seconds / maxSeconds) * 100 : 0
+                        const date = new Date(day.date)
+                        const dayName = date.toLocaleDateString('en-US', { weekday: 'short' })
+                        
+                        return (
+                          <div key={day.date} className="flex flex-col items-center gap-2 group relative h-full justify-end">
+                            <div className="w-12 h-full bg-zinc-800 rounded-t-lg relative overflow-hidden hover:bg-zinc-700 transition-colors cursor-default flex items-end">
+                              <div 
+                                className="w-full bg-linear-to-t from-emerald-500 to-cyan-400 rounded-t-lg transition-all duration-500"
+                                style={{ height: `${height}%`, minHeight: day.total_seconds > 0 ? '4px' : '0px' }}
+                              />
+                            </div>
+                            <div className="text-center shrink-0">
+                              <div className="text-xs text-zinc-400 font-medium">{dayName}</div>
+                              <div className="text-[10px] text-zinc-600">{formatTime(day.total_seconds)}</div>
+                            </div>
+                            {/* Tooltip on hover */}
+                            <div className="absolute bottom-full mb-2 w-max px-2 py-1 bg-zinc-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none z-10 shadow-xl border border-zinc-700 transition-opacity">
+                              {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                              <br/>
+                              {formatTime(day.total_seconds)}
+                              <br/>
+                              {day.session_count} session{day.session_count !== 1 ? 's' : ''}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
-                </div>
+                )}
             </div>
+
+            
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* DSA Card */}
@@ -577,17 +769,18 @@ export default function TrackerApp() {
               {/* Exercise Card */}
               <div className="group relative overflow-hidden bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 hover:border-zinc-700 transition-colors">
                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            
                   <span className="text-4xl">🔥</span>
                 </div>
-                <h3 className="text-zinc-400 font-medium mb-4">Consistency</h3>
+                <h3 className="text-zinc-400 font-medium mb-4">Coding Streak</h3>
                 <div className="flex items-end gap-3 mb-4">
                   <span className="text-5xl font-bold text-transparent bg-clip-text bg-linear-to-br from-orange-400 to-red-500 tracking-tight">
-                    {stats.exercise.days}
+                    {dsaStreak}
                   </span>
                   <span className="text-zinc-500 pb-2 text-lg">Days</span>
                 </div>
                 <p className="text-sm text-zinc-500 mt-auto">
-                  Consistency is the key to placement success. Keep pushing!
+                  Daily DSA practice streak. Keep solving to maintain it!
                 </p>
               </div>
             </div>
@@ -597,6 +790,48 @@ export default function TrackerApp() {
         {/* DSA View */}
         {activeTab === 'dsa' && (
           <div className="animate-in fade-in zoom-in-95 duration-300 max-w-5xl mx-auto">
+            {/* Completion Estimator */}
+            {stats && completionInfo && (
+              <div className="bg-linear-to-br from-emerald-900/20 via-emerald-800/10 to-cyan-900/20 border border-emerald-700/30 rounded-xl p-5 mb-6 backdrop-blur-sm">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-linear-to-br from-emerald-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                      <span className="text-2xl">🎯</span>
+                    </div>
+                    <div>
+                      <div className="text-xs text-emerald-400 font-semibold uppercase tracking-wider mb-0.5">Completion Estimate</div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold text-white">
+                          {completionInfo.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </span>
+                      </div>
+                      <div className="text-xs text-zinc-500 mt-0.5">
+                        {completionInfo.remaining} questions left • {completionInfo.daysNeeded} days
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3 bg-zinc-900/50 rounded-lg border border-zinc-800 px-4 py-2">
+                    <button
+                      onClick={() => setDailyTarget(Math.max(1, dailyTarget - 1))}
+                      className="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 hover:border-zinc-600 transition-colors flex items-center justify-center text-zinc-400 hover:text-white font-bold"
+                    >
+                      −
+                    </button>
+                    <div className="text-center min-w-[60px]">
+                      <div className="text-2xl font-bold text-emerald-400">{dailyTarget}</div>
+                      <div className="text-[10px] text-zinc-500 uppercase tracking-wider">per day</div>
+                    </div>
+                    <button
+                      onClick={() => setDailyTarget(dailyTarget + 1)}
+                      className="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 hover:border-zinc-600 transition-colors flex items-center justify-center text-zinc-400 hover:text-white font-bold"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="flex flex-wrap gap-4 mb-8 bg-zinc-900/50 p-4 rounded-xl border border-zinc-800/50">
               <div className="flex-1 min-w-50">
                 <label className="text-xs text-zinc-500 font-semibold uppercase tracking-wider mb-1 block">Phase</label>
@@ -606,7 +841,7 @@ export default function TrackerApp() {
                     setDsaPhaseFilter(e.target.value)
                     setDsaFilter('all')
                   }}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-zinc-200 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none cursor-pointer hover:bg-zinc-700/50 transition-colors"
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-zinc-200 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none cursor-pointer hover:bg-zinc-700/50 transition-colors [&>option]:bg-zinc-900 [&>option]:text-zinc-200 [&>option]:py-2"
                 >
                   <option value="all">All Phases</option>
                   {phases.map(phase => (
@@ -619,7 +854,7 @@ export default function TrackerApp() {
                 <select
                   value={dsaFilter}
                   onChange={(e) => setDsaFilter(e.target.value)}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-zinc-200 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none cursor-pointer hover:bg-zinc-700/50 transition-colors"
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-zinc-200 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none cursor-pointer hover:bg-zinc-700/50 transition-colors [&>option]:bg-zinc-900 [&>option]:text-zinc-200 [&>option]:py-2"
                 >
                   <option value="all">All Topics</option>
                   {topics.map(topic => (
@@ -762,6 +997,47 @@ export default function TrackerApp() {
         {/* Daily History View */}
         {activeTab === 'daily' && (
           <div className="animate-in fade-in zoom-in-95 duration-300 max-w-3xl mx-auto">
+            {/* Quick Check-in */}
+            <div className="bg-zinc-900/30 border border-zinc-800/50 rounded-xl p-6 backdrop-blur-sm mb-6">
+              <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"/>
+                Quick Check-in: {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric'})}
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <button
+                  onClick={() => toggleDaily('exercise')}
+                  className={`group relative p-4 rounded-xl border transition-all duration-300 ${
+                    todayLog?.exercise
+                      ? 'bg-emerald-500/10 border-emerald-500/50 hover:bg-emerald-500/20'
+                      : 'bg-zinc-800/50 border-zinc-700 hover:border-zinc-500 hover:bg-zinc-800'
+                  }`}
+                >
+                  <div className="flex flex-col items-center justify-between gap-2 text-center">
+                      <span className="text-3xl group-hover:scale-110 transition-transform">🏃</span>
+                      <span className={`text-sm font-medium ${todayLog?.exercise ? 'text-emerald-400' : 'text-zinc-300'}`}>
+                        {todayLog?.exercise ? 'Done' : 'Exercise'}
+                      </span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => toggleDaily('coding')}
+                  className={`group relative p-4 rounded-xl border transition-all duration-300 ${
+                    todayLog?.coding
+                      ? 'bg-blue-500/10 border-blue-500/50 hover:bg-blue-500/20'
+                      : 'bg-zinc-800/50 border-zinc-700 hover:border-zinc-500 hover:bg-zinc-800'
+                  }`}
+                >
+                  <div className="flex flex-col items-center justify-between gap-2 text-center">
+                      <span className="text-3xl group-hover:scale-110 transition-transform">💻</span>
+                      <span className={`text-sm font-medium ${todayLog?.coding ? 'text-blue-400' : 'text-zinc-300'}`}>
+                        {todayLog?.coding ? 'Done' : 'Code'}
+                      </span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
              <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 mb-8 text-center">
                 <h3 className="text-zinc-400 text-sm font-medium uppercase tracking-wider mb-2">Current Habit Streak</h3>
                 <div className="flex justify-center gap-1">

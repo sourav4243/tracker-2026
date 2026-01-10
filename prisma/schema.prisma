@@ -48,3 +48,12 @@ model DailyLog {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model LeetCodeActivity {
+  id        String   @id @default(cuid())
+  date      DateTime @unique @db.Date
+  activeSeconds Int   @default(0)  // Cumulative seconds for this day
+  lastSnapshot Int    @default(0)  // Last known total_active_seconds from backend
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
