@@ -81,15 +81,19 @@ const Icons = {
 
 // --- Component: Monthly Calendar (Question Based) ---
 const ContributionGraph = ({ questions }: { questions: DSAQuestion[] }) => {
-  const { grid, monthName, totalSolvedThisMonth } = useMemo(() => {
+  const [monthOffset, setMonthOffset] = useState(0)
+  
+  const { grid, monthName, totalSolvedThisMonth, isCurrentMonth } = useMemo(() => {
     const today = new Date()
-    const year = today.getFullYear()
-    const month = today.getMonth()
+    const viewDate = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1)
+    const year = viewDate.getFullYear()
+    const month = viewDate.getMonth()
     
-    const monthName = today.toLocaleString('default', { month: 'long', year: 'numeric' })
+    const monthName = viewDate.toLocaleString('default', { month: 'long', year: 'numeric' })
     const daysInMonth = new Date(year, month + 1, 0).getDate()
     const firstDay = new Date(year, month, 1).getDay()
     const startOffset = firstDay === 0 ? 6 : firstDay - 1
+    const isCurrentMonth = monthOffset === 0
 
     // Group questions by completedAt date
     const solvedMap = new Map<string, number>()
@@ -138,12 +142,12 @@ const ContributionGraph = ({ questions }: { questions: DSAQuestion[] }) => {
         day: d,
         count: count,
         level: level,
-        isToday: dateStr === new Date().toISOString().split('T')[0]
+        isToday: isCurrentMonth && dateStr === new Date().toISOString().split('T')[0]
       })
     }
 
-    return { grid: gridCells, monthName, totalSolvedThisMonth: monthlyTotal }
-  }, [questions])
+    return { grid: gridCells, monthName, totalSolvedThisMonth: monthlyTotal, isCurrentMonth }
+  }, [questions, monthOffset])
 
   const getColor = (level: number) => {
     switch(level) {
@@ -158,9 +162,40 @@ const ContributionGraph = ({ questions }: { questions: DSAQuestion[] }) => {
   return (
     <div className="bg-[#0d1117] border border-zinc-800 rounded-xl p-6 w-full max-w-sm mx-auto md:max-w-none md:mx-0 h-full flex flex-col justify-between">
       <div className="flex justify-between items-center mb-6">
-        <div>
-          <h3 className="text-white font-semibold text-lg">{monthName}</h3>
-          <p className="text-xs text-zinc-500">{totalSolvedThisMonth} questions solved</p>
+        <div className="flex items-center gap-3">
+          <div className="flex gap-1">
+            <button
+              onClick={() => setMonthOffset(prev => prev - 1)}
+              className="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-400 hover:text-white"
+              title="Previous month"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setMonthOffset(0)}
+              disabled={isCurrentMonth}
+              className="px-2 py-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed text-xs font-medium"
+              title="Current month"
+            >
+              Today
+            </button>
+            <button
+              onClick={() => setMonthOffset(prev => prev + 1)}
+              disabled={isCurrentMonth}
+              className="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+              title="Next month"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+          <div>
+            <h3 className="text-white font-semibold text-lg">{monthName}</h3>
+            <p className="text-xs text-zinc-500">{totalSolvedThisMonth} questions solved</p>
+          </div>
         </div>
         <div className="flex items-center gap-1 text-[10px] text-zinc-500">
           <span>Less</span>
