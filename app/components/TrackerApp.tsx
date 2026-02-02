@@ -80,7 +80,7 @@ const Icons = {
 }
 
 // --- Component: Monthly Calendar (Question Based) ---
-const ContributionGraph = ({ questions }: { questions: DSAQuestion[] }) => {
+const ContributionGraph = ({ questions, selectedDate, setSelectedDate }: { questions: DSAQuestion[], selectedDate: string | null, setSelectedDate: (date: string | null) => void }) => {
   const [monthOffset, setMonthOffset] = useState(0)
   
   const { grid, monthName, totalSolvedThisMonth, isCurrentMonth } = useMemo(() => {
@@ -221,11 +221,14 @@ const ContributionGraph = ({ questions }: { questions: DSAQuestion[] }) => {
           return (
             <div
               key={cell.date}
+              onClick={() => cell.count > 0 && setSelectedDate(cell.date)}
               className={`
                 aspect-square rounded-[3px] flex items-center justify-center text-[10px] relative group
                 ${getColor(cell.level)} 
                 ${cell.isToday ? 'ring-1 ring-white' : 'border border-transparent hover:border-zinc-500'}
-                transition-all duration-200 cursor-default
+                ${selectedDate === cell.date ? 'ring-2 ring-emerald-400' : ''}
+                ${cell.count > 0 ? 'cursor-pointer' : 'cursor-default'}
+                transition-all duration-200
               `}
             >
               <span className={`font-medium ${cell.level > 1 ? 'text-black/70' : 'text-zinc-500/50 group-hover:text-zinc-300'}`}>
@@ -236,6 +239,7 @@ const ContributionGraph = ({ questions }: { questions: DSAQuestion[] }) => {
                 {new Date(cell.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                 <br/>
                 {cell.count} Solved
+                {cell.count > 0 && <><br/><span className="text-[10px] text-zinc-400">Click to view</span></>}
               </div>
             </div>
           )
@@ -358,6 +362,7 @@ export default function TrackerApp() {
   const [leetcodeStats, setLeetcodeStats] = useState<LeetCodeStats | null>(null)
   const [leetcodeHistory, setLeetcodeHistory] = useState<DailyHistory[]>([])
   const [dailyTarget, setDailyTarget] = useState<number>(3)
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null)
 
   useEffect(() => {
     fetchData()
@@ -554,6 +559,18 @@ export default function TrackerApp() {
 
   const subjects = [...new Set(csConcepts.map(c => c.subject))]
 
+  // Get questions solved on selected calendar date
+  const selectedDateQuestions = useMemo(() => {
+    if (!selectedCalendarDate) return []
+    return dsaQuestions.filter(q => {
+      if ((q.status === 'DONE' || q.status === 'REVISIT') && q.completedAt) {
+        const dateStr = q.completedAt.split('T')[0]
+        return dateStr === selectedCalendarDate
+      }
+      return false
+    })
+  }, [selectedCalendarDate, dsaQuestions])
+
   // Calculate DSA solving streak
   const calculateDSAStreak = () => {
     const solvedDates = new Set<string>()
@@ -715,7 +732,7 @@ export default function TrackerApp() {
             <div className="flex flex-col md:flex-row gap-6">
                 {/* --- Contribution Graph (Questions Solved) --- */}
                 <div className="flex-1">
-                    <ContributionGraph questions={dsaQuestions} />
+                    <ContributionGraph questions={dsaQuestions} selectedDate={selectedCalendarDate} setSelectedDate={setSelectedCalendarDate} />
                 </div>
                 
                 {/* Weekly Activity Chart */}
@@ -799,6 +816,59 @@ export default function TrackerApp() {
                   </div>
                 )}
             </div>
+
+            {/* Selected Date Questions - Placed below the calendar and weekly activity */}
+            {selectedCalendarDate && selectedDateQuestions.length > 0 && (
+              <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-white">
+                    Questions solved on {new Date(selectedCalendarDate).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
+                  </h3>
+                  <button
+                    onClick={() => setSelectedCalendarDate(null)}
+                    className="px-3 py-1.5 text-sm text-zinc-400 hover:text-white bg-zinc-800/50 hover:bg-zinc-800 rounded-lg transition-colors border border-zinc-700"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {selectedDateQuestions.map(q => (
+                    <div key={q.id} className="bg-zinc-800/50 rounded-lg p-4 hover:bg-zinc-800 transition-colors border border-zinc-700/50">
+                      <div className="flex items-start gap-3">
+                        <div className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${
+                          q.status === 'DONE' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]'
+                        }`} />
+                        <div className="flex-1 min-w-0">
+                          {q.link ? (
+                            <a 
+                              href={q.link} 
+                              target="_blank" 
+                              rel="noreferrer" 
+                              className="text-sm text-zinc-200 hover:text-emerald-400 transition-colors font-medium flex items-center gap-1.5 mb-2"
+                            >
+                              <span className="truncate">{q.title}</span>
+                              <Icons.External />
+                            </a>
+                          ) : (
+                            <span className="text-sm text-zinc-200 font-medium block truncate mb-2">{q.title}</span>
+                          )}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs px-2 py-1 rounded bg-zinc-700/50 text-zinc-400 border border-zinc-600">{q.topic}</span>
+                            <span className={`text-xs px-2 py-1 rounded font-medium ${
+                              q.status === 'DONE' 
+                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                                : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                            }`}>
+                              {q.status}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
