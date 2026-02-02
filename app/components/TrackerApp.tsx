@@ -720,44 +720,86 @@ export default function TrackerApp() {
                 
                 {/* Weekly Activity Chart */}
                 {leetcodeStats && leetcodeHistory.length > 0 && (
-                  <div className="flex-1 bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6">
-                    <h3 className="text-zinc-200 font-semibold text-lg mb-6">Last 7 Days Activity</h3>
-                    <div className="flex items-end justify-center gap-6 h-58">
-                      {leetcodeHistory.slice(0, 7).reverse().map((day) => {
-                        const maxSeconds = Math.max(...leetcodeHistory.map(d => d.total_seconds))
-                        const height = maxSeconds > 0 ? (day.total_seconds / maxSeconds) * 100 : 0
-                        const date = new Date(day.date)
-                        const dayName = date.toLocaleDateString('en-US', { weekday: 'short' })
-                        
-                        return (
-                          <div key={day.date} className="flex flex-col items-center gap-2 group relative h-full justify-end">
-                            <div className="w-12 h-full bg-zinc-800 rounded-t-lg relative overflow-hidden hover:bg-zinc-700 transition-colors cursor-default flex items-end">
-                              <div 
-                                className="w-full bg-linear-to-t from-emerald-500 to-cyan-400 rounded-t-lg transition-all duration-500"
-                                style={{ height: `${height}%`, minHeight: day.total_seconds > 0 ? '4px' : '0px' }}
-                              />
+                  <div className="flex-1 bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 space-y-6">
+                    <div>
+                      <h3 className="text-zinc-200 font-semibold text-lg mb-6">Last 7 Days Activity</h3>
+                      <div className="flex items-end justify-center gap-6 h-58">
+                        {leetcodeHistory.slice(0, 7).reverse().map((day) => {
+                          const maxSeconds = Math.max(...leetcodeHistory.map(d => d.total_seconds))
+                          const height = maxSeconds > 0 ? (day.total_seconds / maxSeconds) * 100 : 0
+                          const date = new Date(day.date)
+                          const dayName = date.toLocaleDateString('en-US', { weekday: 'short' })
+                          
+                          return (
+                            <div key={day.date} className="flex flex-col items-center gap-2 group relative h-full justify-end">
+                              <div className="w-12 h-full bg-zinc-800 rounded-t-lg relative overflow-hidden hover:bg-zinc-700 transition-colors cursor-default flex items-end">
+                                <div 
+                                  className="w-full bg-linear-to-t from-emerald-500 to-cyan-400 rounded-t-lg transition-all duration-500"
+                                  style={{ height: `${height}%`, minHeight: day.total_seconds > 0 ? '4px' : '0px' }}
+                                />
+                              </div>
+                              <div className="text-center shrink-0">
+                                <div className="text-xs text-zinc-400 font-medium">{dayName}</div>
+                                <div className="text-[10px] text-zinc-600">{formatTime(day.total_seconds)}</div>
+                              </div>
+                              {/* Tooltip on hover */}
+                              <div className="absolute bottom-full mb-2 w-max px-2 py-1 bg-zinc-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none z-10 shadow-xl border border-zinc-700 transition-opacity">
+                                {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                <br/>
+                                {formatTime(day.total_seconds)}
+                                <br/>
+                                {day.session_count} session{day.session_count !== 1 ? 's' : ''}
+                              </div>
                             </div>
-                            <div className="text-center shrink-0">
-                              <div className="text-xs text-zinc-400 font-medium">{dayName}</div>
-                              <div className="text-[10px] text-zinc-600">{formatTime(day.total_seconds)}</div>
-                            </div>
-                            {/* Tooltip on hover */}
-                            <div className="absolute bottom-full mb-2 w-max px-2 py-1 bg-zinc-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none z-10 shadow-xl border border-zinc-700 transition-opacity">
-                              {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                              <br/>
-                              {formatTime(day.total_seconds)}
-                              <br/>
-                              {day.session_count} session{day.session_count !== 1 ? 's' : ''}
-                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Quick Check-in */}
+                    <div className="bg-zinc-900/50 border border-zinc-700/50 rounded-xl p-5">
+                      <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"/>
+                        Quick Check-in
+                      </h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          onClick={() => toggleDaily('exercise')}
+                          className={`group relative p-4 rounded-lg border transition-all duration-300 ${
+                            todayLog?.exercise
+                              ? 'bg-emerald-500/10 border-emerald-500/50 hover:bg-emerald-500/20'
+                              : 'bg-zinc-800/50 border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800'
+                          }`}
+                        >
+                          <div className="flex flex-col items-center justify-center gap-2 text-center">
+                            <span className="text-2xl group-hover:scale-110 transition-transform">🏃</span>
+                            <span className={`text-xs font-medium ${todayLog?.exercise ? 'text-emerald-400' : 'text-zinc-400'}`}>
+                              {todayLog?.exercise ? 'Done' : 'Exercise'}
+                            </span>
                           </div>
-                        )
-                      })}
+                        </button>
+
+                        <button
+                          onClick={() => toggleDaily('coding')}
+                          className={`group relative p-4 rounded-lg border transition-all duration-300 ${
+                            todayLog?.coding
+                              ? 'bg-blue-500/10 border-blue-500/50 hover:bg-blue-500/20'
+                              : 'bg-zinc-800/50 border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800'
+                          }`}
+                        >
+                          <div className="flex flex-col items-center justify-center gap-2 text-center">
+                            <span className="text-2xl group-hover:scale-110 transition-transform">💻</span>
+                            <span className={`text-xs font-medium ${todayLog?.coding ? 'text-blue-400' : 'text-zinc-400'}`}>
+                              {todayLog?.coding ? 'Done' : 'Code'}
+                            </span>
+                          </div>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
             </div>
 
-            
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* DSA Card */}
@@ -1082,48 +1124,7 @@ export default function TrackerApp() {
         {/* Daily History View */}
         {activeTab === 'daily' && (
           <div className="animate-in fade-in zoom-in-95 duration-300 max-w-3xl mx-auto">
-            {/* Quick Check-in */}
-            <div className="bg-zinc-900/30 border border-zinc-800/50 rounded-xl p-6 backdrop-blur-sm mb-6">
-              <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"/>
-                Quick Check-in: {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric'})}
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <button
-                  onClick={() => toggleDaily('exercise')}
-                  className={`group relative p-4 rounded-xl border transition-all duration-300 ${
-                    todayLog?.exercise
-                      ? 'bg-emerald-500/10 border-emerald-500/50 hover:bg-emerald-500/20'
-                      : 'bg-zinc-800/50 border-zinc-700 hover:border-zinc-500 hover:bg-zinc-800'
-                  }`}
-                >
-                  <div className="flex flex-col items-center justify-between gap-2 text-center">
-                      <span className="text-3xl group-hover:scale-110 transition-transform">🏃</span>
-                      <span className={`text-sm font-medium ${todayLog?.exercise ? 'text-emerald-400' : 'text-zinc-300'}`}>
-                        {todayLog?.exercise ? 'Done' : 'Exercise'}
-                      </span>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => toggleDaily('coding')}
-                  className={`group relative p-4 rounded-xl border transition-all duration-300 ${
-                    todayLog?.coding
-                      ? 'bg-blue-500/10 border-blue-500/50 hover:bg-blue-500/20'
-                      : 'bg-zinc-800/50 border-zinc-700 hover:border-zinc-500 hover:bg-zinc-800'
-                  }`}
-                >
-                  <div className="flex flex-col items-center justify-between gap-2 text-center">
-                      <span className="text-3xl group-hover:scale-110 transition-transform">💻</span>
-                      <span className={`text-sm font-medium ${todayLog?.coding ? 'text-blue-400' : 'text-zinc-300'}`}>
-                        {todayLog?.coding ? 'Done' : 'Code'}
-                      </span>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-             <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 mb-8 text-center">
+            <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 mb-8 text-center">
                 <h3 className="text-zinc-400 text-sm font-medium uppercase tracking-wider mb-2">Current Habit Streak</h3>
                 <div className="flex justify-center gap-1">
                    {Array.from({length: 7}).map((_, i) => {
