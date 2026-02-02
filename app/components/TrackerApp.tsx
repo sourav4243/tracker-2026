@@ -723,7 +723,7 @@ export default function TrackerApp() {
                   <div className="flex-1 bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 space-y-6">
                     <div>
                       <h3 className="text-zinc-200 font-semibold text-lg mb-6">Last 7 Days Activity</h3>
-                      <div className="flex items-end justify-center gap-6 h-58">
+                      <div className="flex items-end justify-between gap-2 sm:gap-4 md:gap-6 h-58 w-full">
                         {leetcodeHistory.slice(0, 7).reverse().map((day) => {
                           const maxSeconds = Math.max(...leetcodeHistory.map(d => d.total_seconds))
                           const height = maxSeconds > 0 ? (day.total_seconds / maxSeconds) * 100 : 0
@@ -731,16 +731,16 @@ export default function TrackerApp() {
                           const dayName = date.toLocaleDateString('en-US', { weekday: 'short' })
                           
                           return (
-                            <div key={day.date} className="flex flex-col items-center gap-2 group relative h-full justify-end">
-                              <div className="w-12 h-full bg-zinc-800 rounded-t-lg relative overflow-hidden hover:bg-zinc-700 transition-colors cursor-default flex items-end">
+                            <div key={day.date} className="flex flex-col items-center gap-1 sm:gap-2 group relative h-full justify-end flex-1 min-w-0">
+                              <div className="w-full max-w-[40px] sm:max-w-[48px] mx-auto h-full bg-zinc-800 rounded-t-lg relative overflow-hidden hover:bg-zinc-700 transition-colors cursor-default flex items-end">
                                 <div 
                                   className="w-full bg-linear-to-t from-emerald-500 to-cyan-400 rounded-t-lg transition-all duration-500"
                                   style={{ height: `${height}%`, minHeight: day.total_seconds > 0 ? '4px' : '0px' }}
                                 />
                               </div>
-                              <div className="text-center shrink-0">
-                                <div className="text-xs text-zinc-400 font-medium">{dayName}</div>
-                                <div className="text-[10px] text-zinc-600">{formatTime(day.total_seconds)}</div>
+                              <div className="text-center shrink-0 w-full">
+                                <div className="text-[10px] sm:text-xs text-zinc-400 font-medium truncate">{dayName}</div>
+                                <div className="text-[9px] sm:text-[10px] text-zinc-600 truncate">{formatTime(day.total_seconds)}</div>
                               </div>
                               {/* Tooltip on hover */}
                               <div className="absolute bottom-full mb-2 w-max px-2 py-1 bg-zinc-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none z-10 shadow-xl border border-zinc-700 transition-opacity">
