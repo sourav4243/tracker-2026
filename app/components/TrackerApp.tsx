@@ -352,6 +352,7 @@ export default function TrackerApp() {
   const [loading, setLoading] = useState(true)
   const [dsaFilter, setDsaFilter] = useState<string>('all')
   const [dsaPhaseFilter, setDsaPhaseFilter] = useState<string>('all')
+  const [dsaStatusFilter, setDsaStatusFilter] = useState<string>('all')
   const [selectedQuestion, setSelectedQuestion] = useState<DSAQuestion | null>(null)
   const [leetcodeData, setLeetcodeData] = useState<LeetCodeData | null>(null)
   const [leetcodeStats, setLeetcodeStats] = useState<LeetCodeStats | null>(null)
@@ -541,6 +542,7 @@ export default function TrackerApp() {
   const filteredDSA = dsaQuestions.filter(q => {
     if (dsaPhaseFilter !== 'all' && q.phase !== dsaPhaseFilter) return false
     if (dsaFilter !== 'all' && q.topic !== dsaFilter) return false
+    if (dsaStatusFilter !== 'all' && q.status !== dsaStatusFilter) return false
     return true
   })
 
@@ -867,35 +869,83 @@ export default function TrackerApp() {
                 </div>
               </div>
             )}
-            <div className="flex flex-wrap gap-4 mb-8 bg-zinc-900/50 p-4 rounded-xl border border-zinc-800/50">
-              <div className="flex-1 min-w-50">
-                <label className="text-xs text-zinc-500 font-semibold uppercase tracking-wider mb-1 block">Phase</label>
-                <select
-                  value={dsaPhaseFilter}
-                  onChange={(e) => {
-                    setDsaPhaseFilter(e.target.value)
-                    setDsaFilter('all')
-                  }}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-zinc-200 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none cursor-pointer hover:bg-zinc-700/50 transition-colors [&>option]:bg-zinc-900 [&>option]:text-zinc-200 [&>option]:py-2"
+            <div className="space-y-4 mb-8">
+              {/* Status Filter Buttons */}
+              <div className="flex flex-wrap gap-2 bg-zinc-900/50 p-4 rounded-xl border border-zinc-800/50">
+                <label className="text-xs text-zinc-500 font-semibold uppercase tracking-wider mr-2 flex items-center">Status:</label>
+                <button
+                  onClick={() => setDsaStatusFilter('all')}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                    dsaStatusFilter === 'all'
+                      ? 'bg-zinc-700 text-white shadow-lg'
+                      : 'bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-zinc-200'
+                  }`}
                 >
-                  <option value="all">All Phases</option>
-                  {phases.map(phase => (
-                    <option key={phase} value={phase}>{phase}</option>
-                  ))}
-                </select>
+                  All
+                </button>
+                <button
+                  onClick={() => setDsaStatusFilter('TODO')}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                    dsaStatusFilter === 'TODO'
+                      ? 'bg-zinc-600 text-white shadow-lg'
+                      : 'bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-zinc-200'
+                  }`}
+                >
+                  To Do
+                </button>
+                <button
+                  onClick={() => setDsaStatusFilter('REVISIT')}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                    dsaStatusFilter === 'REVISIT'
+                      ? 'bg-amber-600 text-white shadow-lg'
+                      : 'bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-zinc-200'
+                  }`}
+                >
+                  Revisit
+                </button>
+                <button
+                  onClick={() => setDsaStatusFilter('DONE')}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                    dsaStatusFilter === 'DONE'
+                      ? 'bg-emerald-600 text-white shadow-lg'
+                      : 'bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-zinc-200'
+                  }`}
+                >
+                  Done
+                </button>
               </div>
-              <div className="flex-1 min-w-50">
-                <label className="text-xs text-zinc-500 font-semibold uppercase tracking-wider mb-1 block">Topic</label>
-                <select
-                  value={dsaFilter}
-                  onChange={(e) => setDsaFilter(e.target.value)}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-zinc-200 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none cursor-pointer hover:bg-zinc-700/50 transition-colors [&>option]:bg-zinc-900 [&>option]:text-zinc-200 [&>option]:py-2"
-                >
-                  <option value="all">All Topics</option>
-                  {topics.map(topic => (
-                    <option key={topic} value={topic}>{topic}</option>
-                  ))}
-                </select>
+
+              {/* Phase and Topic Filters */}
+              <div className="flex flex-wrap gap-4 bg-zinc-900/50 p-4 rounded-xl border border-zinc-800/50">
+                <div className="flex-1 min-w-50">
+                  <label className="text-xs text-zinc-500 font-semibold uppercase tracking-wider mb-1 block">Phase</label>
+                  <select
+                    value={dsaPhaseFilter}
+                    onChange={(e) => {
+                      setDsaPhaseFilter(e.target.value)
+                      setDsaFilter('all')
+                    }}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-zinc-200 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none cursor-pointer hover:bg-zinc-700/50 transition-colors [&>option]:bg-zinc-900 [&>option]:text-zinc-200 [&>option]:py-2"
+                  >
+                    <option value="all">All Phases</option>
+                    {phases.map(phase => (
+                      <option key={phase} value={phase}>{phase}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1 min-w-50">
+                  <label className="text-xs text-zinc-500 font-semibold uppercase tracking-wider mb-1 block">Topic</label>
+                  <select
+                    value={dsaFilter}
+                    onChange={(e) => setDsaFilter(e.target.value)}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-zinc-200 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none cursor-pointer hover:bg-zinc-700/50 transition-colors [&>option]:bg-zinc-900 [&>option]:text-zinc-200 [&>option]:py-2"
+                  >
+                    <option value="all">All Topics</option>
+                    {topics.map(topic => (
+                      <option key={topic} value={topic}>{topic}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
